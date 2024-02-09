@@ -4,6 +4,7 @@ import {User} from "../models/user.model.js"
 import {cloudinaryUpload} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import { upload } from "../middlewares/multer.js";
 
 const generateTokens = async(userId) =>{
     try{
@@ -184,5 +185,115 @@ const refreshAcessToken = asyncHandler(async(req,res) =>{
         throw new ApiError(401,error?.message || "Invalid refresh token")
     }
 })
+const changePassword = asyncHandler(async(req,res) =>{
+    const {oldPassword,newPassword} = req.body;
+    const user = await User.findById(req.user?._id)
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+    if(!isPasswordCorrect)
+    {
+        throw new ApiError(400,"Invalid or Old Password")
+    }
+    user.password = newPassword;
+    await user.save({validateBeforeSave:false})
+    return res
+    .status(200)
+    .json(new ApiResponse(200,{},"Password Changed Succesfully"))
+})
+const getCurrentUser = asyncHandler(async(req,res) =>{
+    return res
+    .status(200)
+    .json(new ApiResponse(200,req.user,"current user sent"))
 
-export {registerUser,loginUser,logoutUser,refreshAcessToken}
+})
+
+const updateAccountDetails = asyncHandler(async(req,res)=>{
+    const {fullName,email} = req.body
+
+    if(!(fullName||email))
+    {
+        throw new ApiError(400,"Some feilds sre required to update")
+    }
+
+    const updateFields = {};
+    if (fullName) {
+        updateFields.fullName = fullName;
+    }
+    if (email) {
+        updateFields.email = email;
+    }
+
+   const user = await  User.findByIdAndUpdate(
+    req.user?._id,
+    updateFields,
+    {new:true}).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200,user,"Account details updated successfully"))
+})
+const updateAvatar = asyncHandler(async(req,res)=>{
+    console.log(req.files.avatar[0].path);
+    const avatarLocalPath = req.files?.avatar[0]?.path;
+    if(!avatarLocalPath)
+    {
+        throw new ApiError(400,"Avatar server local path not found")
+    }
+    const fileLink = await cloudinaryUpload(avatarLocalPath)
+    if(!fileLink.url)
+    {
+        throw new ApiError(400,"File Link not generated")
+    }
+    const user  = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                avatar : fileLink.url
+            }
+        },
+        {new:true}).select("-password")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200,user,"Updated Avatar")
+    )
+
+})
+const updateCoverImage = asyncHandler(async(req,res)=>{
+    const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    if(!coverImageLocalPath)
+    {
+        throw new ApiError(400,"Cover Image server local path not found")
+    }
+    const fileLink = await cloudinaryUpload(coverImageLocalPath)
+    if(!fileLink.url)
+    {
+        throw new ApiError(400,"File Link not generated")
+    }
+    const user  = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                coverImage : fileLink.url
+            }
+        },
+        {new:true}).select("-password")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200,user,"Updated Cover Image")
+    )
+
+})
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAcessToken,
+    changePassword,
+    getCurrentUser,
+    updateAccountDetails,
+    updateAvatar,
+    updateCoverImage
+}
