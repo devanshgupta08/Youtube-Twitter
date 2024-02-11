@@ -6,6 +6,7 @@ import {ApiResponse} from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
+
 const generateTokens = async(userId) =>{
     try{
         const user = await User.findById(userId)
@@ -23,6 +24,12 @@ const options ={
     httpOnly: true,
     secure: true
 }
+const home = asyncHandler(async (req, res) => {
+    return res
+    .status(200)
+    .json(new ApiResponse(200,{"home" :"Home route"}, "Successfully opened /"));
+});
+
 const registerUser = asyncHandler(async(req,res)=>{
     //get user details
     const {fullName,email,username,password} = req.body
@@ -400,6 +407,7 @@ const getWatchHistory = asyncHandler(async(req,res)=>{
     ))
 })
 export {
+    home,
     registerUser,
     loginUser,
     logoutUser,
