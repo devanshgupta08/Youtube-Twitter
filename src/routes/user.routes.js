@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { changePassword, getCurrentUser, loginUser, logoutUser, refreshAcessToken, registerUser, updateAccountDetails, updateAvatar, updateCoverImage } from "../controllers/user.controller.js";
+import { changePassword, getCurrentUser, getUserChannelProfile, getWatchHistory, loginUser, logoutUser, refreshAcessToken, registerUser, updateAccountDetails, updateAvatar, updateCoverImage } from "../controllers/user.controller.js";
 import {upload} from "../middlewares/multer.js"
 import { verifyJWT } from "../middlewares/auth.js";
 
@@ -22,13 +22,15 @@ router.route("/refreshtoken").post(verifyJWT,refreshAcessToken)
 router.route("/changepassword").post(verifyJWT,changePassword)
 router.route("/currentuser").get(verifyJWT,getCurrentUser)
 router.route("/updatedetails").patch(verifyJWT,updateAccountDetails)
-router.route("/update-avatar").patch(upload.fields([{
+router.route("/update-avatar").patch(verifyJWT,upload.fields([{
     name: "avatar",
     maxCount: 1
-}]),verifyJWT,updateAvatar)
-router.route("/update-cover-image").patch(upload.fields([{
+}]),updateAvatar)
+router.route("/update-cover-image").patch(verifyJWT,upload.fields([{
     name: "coverImage",
     maxCount: 1
-}]),verifyJWT,updateCoverImage)
+}]),updateCoverImage)
+router.route("/channel/:username").get(verifyJWT,getUserChannelProfile)
+router.route("/watch-history").get(verifyJWT,getWatchHistory)
 
 export default router

@@ -4,7 +4,7 @@ import {User} from "../models/user.model.js"
 import {cloudinaryUpload} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import { upload } from "../middlewares/multer.js";
+import mongoose from "mongoose";
 
 const generateTokens = async(userId) =>{
     try{
@@ -22,7 +22,7 @@ const generateTokens = async(userId) =>{
 const options ={
     httpOnly: true,
     secure: true
-}//option made global check for error
+}
 const registerUser = asyncHandler(async(req,res)=>{
     //get user details
     const {fullName,email,username,password} = req.body
@@ -286,6 +286,119 @@ const updateCoverImage = asyncHandler(async(req,res)=>{
     )
 
 })
+const getUserChannelProfile = asyncHandler(async(req,res) =>{
+    const {username} = req.params
+    if(!username?.trim())
+    {
+        throw new ApiError(400,"Usrname not found")
+    }
+   const channel = await User.aggregate([
+    {
+        $match: {
+            username: username?.toLowerCase()
+        }
+    },
+    {
+        $lookup: {
+            from:"subscriptions",
+            localField: "_id",
+            foreignField: "channel",
+            as: "subscribers"
+        }
+    },
+    {
+        $lookup: {
+            from:"subscriptions",
+            localField: "_id",
+            foreignField: "subscriber",
+            as: "subscribedTo"
+        }
+    },
+    {
+        $addFields: {
+            subscriberscount: {
+                $size: "$subscribers"
+            },
+            
+            channelIsSubscribedToCount :{ 
+                $size: "$subscribedTo"
+            },
+            isSubscribed: {
+                if: {$in: [req.user?._id,"$subscribers.subscriber"]},
+                then: true,
+                else: false
+            }
+        }
+    },
+    {
+        $project: {
+            fullName: 1,
+            username: 1,
+            subscriberscount:1,
+            channelIsSubscribedToCount:1,
+            isSubscribed: 1,
+            avatar: 1,
+            coverImage: 1,
+            email: 1
+        }
+    }
+   ])
+   if(!channel?.length)
+   {
+        throw new ApiError(404,"channel does not exist")
+   }
+   return res
+   .status(200)
+   .json(new ApiResponse(200,channel[0],"User Channel sent"))
+})
+const getWatchHistory = asyncHandler(async(req,res)=>{
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup: {
+                from :"vedios",
+                localField:"watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline:[
+                    {
+                        $lookup: {
+                            from :"users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+    return res
+    .status(200)
+    .json(new ApiResponse(
+        200,user[0].getWatchHistory,"Watch History sent successfully"
+    ))
+})
 export {
     registerUser,
     loginUser,
@@ -295,5 +408,7 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateAvatar,
-    updateCoverImage
+    updateCoverImage,
+    getUserChannelProfile,
+    getWatchHistory
 }
